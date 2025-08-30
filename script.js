@@ -1,10 +1,9 @@
 const svg = document.getElementById('network-container');
-const addContactBtn = document.getElementById('add-contact-btn');
-const contactNameInput = document.getElementById('contact-name');
 const nodeColorInput = document.getElementById('node-color');
 const nodeSizeInput = document.getElementById('node-size');
 const connectBtn = document.getElementById('connect-btn');
 const renameBtn = document.getElementById('rename-btn');
+const recolorNodeBtn = document.getElementById('recolor-node-btn');
 const clearBtn = document.getElementById('clear-btn');
 
 let nodes = [];
@@ -18,6 +17,7 @@ const sizeMultiplier = 8;
 
 let connectingMode = false;
 let renamingMode = false;
+let recoloringNodeMode = false;
 
 function createNode(name, x, y, color, size, parentId = null) {
     const node = {
@@ -53,7 +53,10 @@ function drawNetwork() {
             line.setAttribute('y1', sourceNode.y);
             line.setAttribute('x2', targetNode.x);
             line.setAttribute('y2', targetNode.y);
-            line.addEventListener('click', () => deleteLink(link.sourceId, link.targetId));
+            line.addEventListener('click', (event) => {
+                event.stopPropagation();
+                deleteLink(link.sourceId, link.targetId);
+            });
             svg.appendChild(line);
         }
     });
@@ -84,7 +87,7 @@ function drawNetwork() {
 function startDrag(event) {
     event.stopPropagation();
     
-    if (connectingMode || renamingMode) return;
+    if (connectingMode || renamingMode || recoloringNodeMode) return;
     
     const target = event.currentTarget;
     const nodeId = target.getAttribute('data-id');
@@ -133,9 +136,12 @@ function endDrag() {
 }
 
 function handleNodeClick(event) {
+    event.stopPropagation();
     if (activeNode) return;
     
-    if (renamingMode) {
+    if (recoloringNodeMode) {
+        recolorNode(event);
+    } else if (renamingMode) {
         renameNode(event);
     } else if (connectingMode) {
         handleConnectingMode(event);
@@ -157,7 +163,7 @@ function addNodeToNode(event) {
             const color = nodeColorInput.value;
             const size = nodeSizeInput.value;
             
-            createNode(name.trim(), newX, newY, color, size, parentId = parentNode.id);
+            createNode(name.trim(), newX, newY, color, size, parentNode.id);
         }
     }
 }
@@ -191,26 +197,7 @@ function deleteLink(sourceId, targetId) {
     }
 }
 
-function toggleConnectingMode() {
-    connectingMode = !connectingMode;
-    connectBtn.textContent = connectingMode ? 'Cancel' : 'Connect Nodes';
-    if (!connectingMode) {
-        firstNodeToConnect = null;
-    }
-    if (connectingMode) {
-        renamingMode = false;
-        renameBtn.textContent = 'Rename Node';
-    }
-}
-
-function toggleRenamingMode() {
-    renamingMode = !renamingMode;
-    renameBtn.textContent = renamingMode ? 'Cancel' : 'Rename Node';
-    if (renamingMode) {
-        connectingMode = false;
-        connectBtn.textContent = 'Connect Nodes';
-    }
-}
+let firstNodeToConnect = null;
 
 function handleConnectingMode(event) {
     const clickedNodeId = event.currentTarget.getAttribute('data-id');
@@ -227,9 +214,22 @@ function handleConnectingMode(event) {
         });
         
         drawNetwork();
-        toggleConnectingMode();
+        connectingMode = false;
+        connectBtn.textContent = 'Connect Nodes';
+        firstNodeToConnect = null;
         alert("Nodes connected successfully!");
     }
+}
+
+function recolorNode(event) {
+    const nodeId = event.currentTarget.getAttribute('data-id');
+    const node = nodes.find(n => n.id === nodeId);
+    if (node) {
+        node.color = nodeColorInput.value;
+        drawNetwork();
+    }
+    recoloringNodeMode = false;
+    recolorNodeBtn.textContent = 'Recolor Node';
 }
 
 function renameNode(event) {
@@ -243,7 +243,8 @@ function renameNode(event) {
             drawNetwork();
         }
     }
-    toggleRenamingMode();
+    renamingMode = false;
+    renameBtn.textContent = 'Rename Node';
 }
 
 function clearWeb() {
@@ -257,20 +258,40 @@ function clearWeb() {
     }
 }
 
-addContactBtn.addEventListener('click', () => {
-    const name = contactNameInput.value.trim();
-    if (name) {
-        const x = nodes.length === 0 ? svg.clientWidth / 2 : Math.random() * (svg.clientWidth - nodeRadius * 2) + nodeRadius;
-        const y = nodes.length === 0 ? svg.clientHeight / 2 : Math.random() * (svg.clientHeight - nodeRadius * 2) + nodeRadius;
-        const color = nodeColorInput.value;
-        const size = nodeSizeInput.value;
-        createNode(name, x, y, color, size);
-        contactNameInput.value = '';
+// Event Listeners for Buttons
+connectBtn.addEventListener('click', () => {
+    connectingMode = !connectingMode;
+    connectBtn.textContent = connectingMode ? 'Cancel' : 'Connect Nodes';
+    if(connectingMode) {
+        renamingMode = false;
+        renameBtn.textContent = 'Rename Node';
+        recoloringNodeMode = false;
+        recolorNodeBtn.textContent = 'Recolor Node';
     }
 });
 
-connectBtn.addEventListener('click', toggleConnectingMode);
-renameBtn.addEventListener('click', toggleRenamingMode);
+recolorNodeBtn.addEventListener('click', () => {
+    recoloringNodeMode = !recoloringNodeMode;
+    recolorNodeBtn.textContent = recoloringNodeMode ? 'Cancel' : 'Recolor Node';
+    if(recoloringNodeMode) {
+        connectingMode = false;
+        connectBtn.textContent = 'Connect Nodes';
+        renamingMode = false;
+        renameBtn.textContent = 'Rename Node';
+    }
+});
+
+renameBtn.addEventListener('click', () => {
+    renamingMode = !renamingMode;
+    renameBtn.textContent = renamingMode ? 'Cancel' : 'Rename Node';
+    if(renamingMode) {
+        connectingMode = false;
+        connectBtn.textContent = 'Connect Nodes';
+        recoloringNodeMode = false;
+        recolorNodeBtn.textContent = 'Recolor Node';
+    }
+});
+
 clearBtn.addEventListener('click', clearWeb);
 
 window.addEventListener('load', () => {
