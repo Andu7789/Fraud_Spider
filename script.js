@@ -1,10 +1,14 @@
 const svg = document.getElementById('network-container');
+const graphLayer = document.getElementById('graph-layer');
 const nodeColorInput = document.getElementById('node-color');
 const nodeSizeInput = document.getElementById('node-size');
 const connectBtn = document.getElementById('connect-btn');
 const renameBtn = document.getElementById('rename-btn');
 const recolorNodeBtn = document.getElementById('recolor-node-btn');
 const clearBtn = document.getElementById('clear-btn');
+
+// New Fit button
+const fitBtn = document.getElementById('fit-btn');
 
 let nodes = [];
 let links = [];
@@ -18,6 +22,8 @@ const sizeMultiplier = 8;
 let connectingMode = false;
 let renamingMode = false;
 let recoloringNodeMode = false;
+
+let panZoomInstance = null;
 
 function createNode(name, x, y, color, size, parentId = null) {
     const node = {
@@ -41,7 +47,7 @@ function createNode(name, x, y, color, size, parentId = null) {
 }
 
 function drawNetwork() {
-    svg.innerHTML = '';
+    graphLayer.innerHTML = '';
 
     links.forEach(link => {
         const sourceNode = nodes.find(n => n.id === link.sourceId);
@@ -57,7 +63,7 @@ function drawNetwork() {
                 event.stopPropagation();
                 deleteLink(link.sourceId, link.targetId);
             });
-            svg.appendChild(line);
+            graphLayer.appendChild(line);
         }
     });
 
@@ -80,14 +86,16 @@ function drawNetwork() {
         g.addEventListener('click', handleNodeClick);
         g.addEventListener('contextmenu', deleteNode);
         
-        svg.appendChild(g);
+        graphLayer.appendChild(g);
     });
 }
 
 function startDrag(event) {
     event.stopPropagation();
     
-    if (connectingMode || renamingMode || recoloringNodeMode) return;
+    if (connectingMode || renamingMode || recoloringNodeMode) {
+        return;
+    }
     
     const target = event.currentTarget;
     const nodeId = target.getAttribute('data-id');
@@ -119,10 +127,6 @@ function drag(event) {
         
         activeNode.x = nodeStartPos.x + dx;
         activeNode.y = nodeStartPos.y + dy;
-        
-        const currentRadius = activeNode.size * sizeMultiplier;
-        activeNode.x = Math.max(currentRadius, Math.min(activeNode.x, svg.clientWidth - currentRadius));
-        activeNode.y = Math.max(currentRadius, Math.min(activeNode.y, svg.clientHeight - currentRadius));
         
         drawNetwork();
     }
@@ -163,7 +167,7 @@ function addNodeToNode(event) {
             const color = nodeColorInput.value;
             const size = nodeSizeInput.value;
             
-            createNode(name.trim(), newX, newY, color, size, parentNode.id);
+            createNode(name.trim(), newX, newY, color, size, parentId = parentNode.id);
         }
     }
 }
@@ -171,14 +175,15 @@ function addNodeToNode(event) {
 function deleteNode(event) {
     event.preventDefault();
     
+    // Add the confirmation dialog
+    if (!confirm("Are you sure you want to delete this node? This will also remove any connected links.")) {
+        return; // Stop the function if the user cancels
+    }
+
     const target = event.currentTarget;
     const nodeIdToDelete = target.getAttribute('data-id');
     
-    if (nodes.length > 1 && nodes.find(n => n.id === nodeIdToDelete).isCentral) {
-        alert("Cannot delete the central node if other nodes exist.");
-        return;
-    }
-    
+    // The rest of your existing logic for deleting the node and links
     nodes = nodes.filter(node => node.id !== nodeIdToDelete);
     
     links = links.filter(link => 
@@ -217,7 +222,7 @@ function handleConnectingMode(event) {
         connectingMode = false;
         connectBtn.textContent = 'Connect Nodes';
         firstNodeToConnect = null;
-        alert("Nodes connected successfully!");
+        // alert("Nodes connected successfully!");
     }
 }
 
@@ -255,6 +260,11 @@ function clearWeb() {
         const defaultColor = "#007bff";
         const defaultSize = 5;
         createNode('Central Node', svg.clientWidth / 2, svg.clientHeight / 2, defaultColor, defaultSize);
+
+        if (panZoomInstance) {
+            panZoomInstance.resetZoom();
+            panZoomInstance.center();
+        }
     }
 }
 
@@ -294,10 +304,28 @@ renameBtn.addEventListener('click', () => {
 
 clearBtn.addEventListener('click', clearWeb);
 
+// New fit-to-screen button event
+fitBtn.addEventListener('click', () => {
+    if (panZoomInstance) {
+        panZoomInstance.resetZoom();  // reset to default zoom level
+        panZoomInstance.center();     // center the view
+    }
+});
+
 window.addEventListener('load', () => {
     if (nodes.length === 0) {
         const defaultColor = "#007bff";
         const defaultSize = 5;
         createNode('Central Node', svg.clientWidth / 2, svg.clientHeight / 2, defaultColor, defaultSize);
     }
+    
+    panZoomInstance = svgPanZoom('#network-container', {
+        zoomEnabled: true,
+        panEnabled: true,
+        dblClickZoomEnabled: false,
+        mouseWheelZoomEnabled: true,
+        controlIconsEnabled: true,
+        fit: false,
+        center: false
+    });
 });
