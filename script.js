@@ -1,14 +1,24 @@
 const svg = document.getElementById('network-container');
 const graphLayer = document.getElementById('graph-layer');
+const nodeNameInput = document.getElementById('node-name');
+const nodeInfoInput = document.getElementById('node-info');
 const nodeColorInput = document.getElementById('node-color');
 const nodeSizeInput = document.getElementById('node-size');
+const addContactBtn = document.getElementById('add-contact-btn');
 const connectBtn = document.getElementById('connect-btn');
 const renameBtn = document.getElementById('rename-btn');
 const recolorNodeBtn = document.getElementById('recolor-node-btn');
 const clearBtn = document.getElementById('clear-btn');
-
-// New Fit button
 const fitBtn = document.getElementById('fit-btn');
+const undoBtn = document.getElementById('undo-btn');
+const redoBtn = document.getElementById('redo-btn');
+const toggleModeBtn = document.getElementById('toggle-mode-btn');
+
+const infoPopup = document.getElementById('info-popup');
+const popupName = document.getElementById('popup-name');
+const popupInfo = document.getElementById('popup-info');
+const closePopupBtn = document.getElementById('close-popup-btn');
+
 
 let nodes = [];
 let links = [];
@@ -22,10 +32,54 @@ const sizeMultiplier = 8;
 let connectingMode = false;
 let renamingMode = false;
 let recoloringNodeMode = false;
+let isViewMode = false;
 
 let panZoomInstance = null;
 
-function createNode(name, x, y, color, size, parentId = null) {
+let history = [];
+let historyIndex = -1;
+
+function saveState() {
+    // Clear any "forward" history
+    history = history.slice(0, historyIndex + 1);
+    
+    // Save a deep copy of the current state
+    history.push({
+        nodes: JSON.parse(JSON.stringify(nodes)),
+        links: JSON.parse(JSON.stringify(links))
+    });
+
+    historyIndex++;
+
+    // Optional: Limit history size
+    if (history.length > 20) {
+        history.shift();
+        historyIndex--;
+    }
+}
+
+function undo() {
+    if (historyIndex > 0) {
+        historyIndex--;
+        const previousState = history[historyIndex];
+        nodes = JSON.parse(JSON.stringify(previousState.nodes));
+        links = JSON.parse(JSON.stringify(previousState.links));
+        drawNetwork();
+    }
+}
+
+function redo() {
+    if (historyIndex < history.length - 1) {
+        historyIndex++;
+        const nextState = history[historyIndex];
+        nodes = JSON.parse(JSON.stringify(nextState.nodes));
+        links = JSON.parse(JSON.stringify(nextState.links));
+        drawNetwork();
+    }
+}
+
+
+function createNode(name, x, y, color, size, info, parentId = null) {
     const node = {
         id: `node-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         name: name,
@@ -33,6 +87,7 @@ function createNode(name, x, y, color, size, parentId = null) {
         y: y,
         color: color,
         size: size,
+        info: info,
     };
     nodes.push(node);
 
@@ -44,6 +99,7 @@ function createNode(name, x, y, color, size, parentId = null) {
     }
 
     drawNetwork();
+    saveState();
 }
 
 function drawNetwork() {
@@ -93,7 +149,7 @@ function drawNetwork() {
 function startDrag(event) {
     event.stopPropagation();
     
-    if (connectingMode || renamingMode || recoloringNodeMode) {
+    if (connectingMode || renamingMode || recoloringNodeMode || isViewMode) {
         return;
     }
     
@@ -137,13 +193,20 @@ function endDrag() {
     svg.removeEventListener('mousemove', drag);
     svg.removeEventListener('mouseup', endDrag);
     svg.style.cursor = 'grab';
+    saveState();
 }
 
 function handleNodeClick(event) {
     event.stopPropagation();
     if (activeNode) return;
     
-    if (recoloringNodeMode) {
+    if (isViewMode) {
+        const clickedNodeId = event.currentTarget.getAttribute('data-id');
+        const node = nodes.find(n => n.id === clickedNodeId);
+        if (node) {
+            displayNodeInfo(node);
+        }
+    } else if (recoloringNodeMode) {
         recolorNode(event);
     } else if (renamingMode) {
         renameNode(event);
@@ -152,6 +215,16 @@ function handleNodeClick(event) {
     } else {
         addNodeToNode(event);
     }
+}
+
+function displayNodeInfo(node) {
+    popupName.textContent = node.name;
+    popupInfo.textContent = node.info;
+    infoPopup.classList.remove('hidden');
+}
+
+function hideNodeInfo() {
+    infoPopup.classList.add('hidden');
 }
 
 function addNodeToNode(event) {
@@ -166,24 +239,24 @@ function addNodeToNode(event) {
             const newY = parentNode.y + Math.random() * 100 - 50;
             const color = nodeColorInput.value;
             const size = nodeSizeInput.value;
+            const info = nodeInfoInput.value.trim();
             
-            createNode(name.trim(), newX, newY, color, size, parentId = parentNode.id);
+            createNode(name.trim(), newX, newY, color, size, info, parentId = parentNode.id);
+            nodeInfoInput.value = '';
         }
     }
 }
 
 function deleteNode(event) {
     event.preventDefault();
-    
-    // Add the confirmation dialog
-    if (!confirm("Are you sure you want to delete this node? This will also remove any connected links.")) {
-        return; // Stop the function if the user cancels
-    }
 
+    if (!confirm("Are you sure you want to delete this node? This will also remove any connected links.")) {
+        return;
+    }
+    
     const target = event.currentTarget;
     const nodeIdToDelete = target.getAttribute('data-id');
     
-    // The rest of your existing logic for deleting the node and links
     nodes = nodes.filter(node => node.id !== nodeIdToDelete);
     
     links = links.filter(link => 
@@ -191,6 +264,7 @@ function deleteNode(event) {
     );
     
     drawNetwork();
+    saveState();
 }
 
 function deleteLink(sourceId, targetId) {
@@ -199,6 +273,7 @@ function deleteLink(sourceId, targetId) {
             !(link.sourceId === sourceId && link.targetId === targetId)
         );
         drawNetwork();
+        saveState();
     }
 }
 
@@ -222,7 +297,7 @@ function handleConnectingMode(event) {
         connectingMode = false;
         connectBtn.textContent = 'Connect Nodes';
         firstNodeToConnect = null;
-        // alert("Nodes connected successfully!");
+        saveState();
     }
 }
 
@@ -232,6 +307,7 @@ function recolorNode(event) {
     if (node) {
         node.color = nodeColorInput.value;
         drawNetwork();
+        saveState();
     }
     recoloringNodeMode = false;
     recolorNodeBtn.textContent = 'Recolor Node';
@@ -245,12 +321,18 @@ function renameNode(event) {
         const newName = prompt("Enter a new name for the contact:", nodeToRename.name);
         if (newName !== null && newName.trim() !== '') {
             nodeToRename.name = newName.trim();
+            const newInfo = prompt("Enter new info for the contact:", nodeToRename.info);
+            if (newInfo !== null) {
+                nodeToRename.info = newInfo.trim();
+            }
             drawNetwork();
+            saveState();
         }
     }
     renamingMode = false;
     renameBtn.textContent = 'Rename Node';
 }
+
 
 function clearWeb() {
     if (confirm("Are you sure you want to clear the entire web? This cannot be undone.")) {
@@ -259,16 +341,56 @@ function clearWeb() {
         drawNetwork();
         const defaultColor = "#007bff";
         const defaultSize = 5;
-        createNode('Central Node', svg.clientWidth / 2, svg.clientHeight / 2, defaultColor, defaultSize);
+        const defaultInfo = "This is the central node of your web.";
+        createNode('Central Node', svg.clientWidth / 2, svg.clientHeight / 2, defaultColor, defaultSize, defaultInfo);
 
         if (panZoomInstance) {
             panZoomInstance.resetZoom();
             panZoomInstance.center();
         }
+        saveState();
     }
 }
 
+function toggleMode() {
+    isViewMode = !isViewMode;
+    toggleModeBtn.textContent = isViewMode ? 'Design Mode' : 'View Mode';
+    
+    // Hide all design-related controls in view mode
+    const controls = document.getElementById('controls');
+    controls.querySelectorAll('button, input, textarea, label').forEach(element => {
+        if (element.id !== 'toggle-mode-btn') {
+            element.style.display = isViewMode ? 'none' : 'initial';
+        }
+    });
+
+    // Also disable pan-zoom in view mode to avoid conflicts with clicking
+    if (isViewMode) {
+        panZoomInstance.disablePan();
+        panZoomInstance.disableZoom();
+    } else {
+        panZoomInstance.enablePan();
+        panZoomInstance.enableZoom();
+    }
+}
+
+
 // Event Listeners for Buttons
+addContactBtn.addEventListener('click', () => {
+    const name = nodeNameInput.value.trim();
+    const info = nodeInfoInput.value.trim();
+    if (name) {
+        const x = nodes.length === 0 ? svg.clientWidth / 2 : Math.random() * (svg.clientWidth - 200) + 100;
+        const y = nodes.length === 0 ? svg.clientHeight / 2 : Math.random() * (svg.clientHeight - 200) + 100;
+        const color = nodeColorInput.value;
+        const size = nodeSizeInput.value;
+        createNode(name, x, y, color, size, info);
+        nodeNameInput.value = '';
+        nodeInfoInput.value = '';
+    }
+});
+
+
 connectBtn.addEventListener('click', () => {
     connectingMode = !connectingMode;
     connectBtn.textContent = connectingMode ? 'Cancel' : 'Connect Nodes';
@@ -303,20 +425,26 @@ renameBtn.addEventListener('click', () => {
 });
 
 clearBtn.addEventListener('click', clearWeb);
-
-// New fit-to-screen button event
 fitBtn.addEventListener('click', () => {
     if (panZoomInstance) {
-        panZoomInstance.resetZoom();  // reset to default zoom level
-        panZoomInstance.center();     // center the view
+        panZoomInstance.resetZoom();
+        panZoomInstance.center();
     }
 });
+
+undoBtn.addEventListener('click', undo);
+redoBtn.addEventListener('click', redo);
+toggleModeBtn.addEventListener('click', toggleMode);
+closePopupBtn.addEventListener('click', hideNodeInfo);
+
 
 window.addEventListener('load', () => {
     if (nodes.length === 0) {
         const defaultColor = "#007bff";
         const defaultSize = 5;
-        createNode('Central Node', svg.clientWidth / 2, svg.clientHeight / 2, defaultColor, defaultSize);
+        const defaultInfo = "This is the central node of your web.";
+        createNode('Central Node', svg.clientWidth / 2, svg.clientHeight / 2, defaultColor, defaultSize, defaultInfo);
+        saveState();
     }
     
     panZoomInstance = svgPanZoom('#network-container', {

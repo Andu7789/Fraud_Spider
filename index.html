@@ -11,25 +11,39 @@
     <h1>Contact Web</h1>
 
     <div id="controls">
+        <label for="node-name">Name:</label>
+        <input type="text" id="node-name" placeholder="Enter name">
+        
+        <label for="node-info">Info:</label>
+        <textarea id="node-info" placeholder="Enter info"></textarea>
+
         <label for="node-color">Color:</label>
         <input type="color" id="node-color" value="#007bff">
 
         <label for="node-size">Size (1-10):</label>
         <input type="number" id="node-size" value="3" min="1" max="10">
 
+        <button id="add-contact-btn">Add Contact</button>
         <button id="connect-btn">Connect Nodes</button>
         <button id="recolor-node-btn">Recolor Node</button>
         <button id="rename-btn">Rename Node</button>
         <button id="clear-btn">Clear Web</button>
         <button id="fit-btn">Fit to Screen</button>
-
+        <button id="undo-btn">Undo</button>
+        <button id="redo-btn">Redo</button>
+        <button id="toggle-mode-btn">View Mode</button>
     </div>
 
     
     <svg id="network-container">
-  <g id="graph-layer"></g>
-</svg>
+        <g id="graph-layer"></g>
+    </svg>
 
+    <div id="info-popup" class="hidden">
+        <h2 id="popup-name"></h2>
+        <p id="popup-info"></p>
+        <button id="close-popup-btn">Close</button>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
     <script src="script.js"></script>
