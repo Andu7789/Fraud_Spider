@@ -1,0 +1,54 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    margin: 0;
+}
+
+#controls {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#network-container {
+    border: 2px solid #ccc;
+    background-color: #fff;
+    width: 90vw;
+    height: 80vh;
+    cursor: grab;
+}
+
+.node {
+    cursor: pointer;
+    transition: transform 0.2s ease-in-out;
+}
+
+.node circle {
+    stroke: #000;
+    stroke-width: 2;
+}
+
+.node text {
+    fill: white;
+    font-size: 12px;
+    text-anchor: middle;
+    dominant-baseline: central;
+    user-select: none;
+    pointer-events: none;
+}
+
+.link {
+    stroke: #666;
+    stroke-width: 2;
+    cursor: pointer;
+}
+
+.link:hover {
+    stroke-width: 4;
+}
