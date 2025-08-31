@@ -1,10 +1,10 @@
 const svg = document.getElementById('network-container');
 const graphLayer = document.getElementById('graph-layer');
-const nodeNameInput = document.getElementById('node-name');
+// const nodeNameInput = document.getElementById('node-name');
 const nodeInfoInput = document.getElementById('node-info');
 const nodeColorInput = document.getElementById('node-color');
 const nodeSizeInput = document.getElementById('node-size');
-const addContactBtn = document.getElementById('add-contact-btn');
+// const addContactBtn = document.getElementById('add-contact-btn');
 const connectBtn = document.getElementById('connect-btn');
 const renameBtn = document.getElementById('rename-btn');
 const recolorNodeBtn = document.getElementById('recolor-node-btn');
@@ -115,10 +115,14 @@ function drawNetwork() {
             line.setAttribute('y1', sourceNode.y);
             line.setAttribute('x2', targetNode.x);
             line.setAttribute('y2', targetNode.y);
+
+
+            if (!isViewMode) {
             line.addEventListener('click', (event) => {
                 event.stopPropagation();
                 deleteLink(link.sourceId, link.targetId);
-            });
+                });
+            }
             graphLayer.appendChild(line);
         }
     });
@@ -140,7 +144,10 @@ function drawNetwork() {
 
         g.addEventListener('mousedown', startDrag);
         g.addEventListener('click', handleNodeClick);
-        g.addEventListener('contextmenu', deleteNode);
+
+        if (!isViewMode) {
+            g.addEventListener('contextmenu', deleteNode);
+        }
         
         graphLayer.appendChild(g);
     });
@@ -149,7 +156,7 @@ function drawNetwork() {
 function startDrag(event) {
     event.stopPropagation();
     
-    if (connectingMode || renamingMode || recoloringNodeMode || isViewMode) {
+    if (connectingMode || renamingMode || recoloringNodeMode) {
         return;
     }
     
@@ -355,40 +362,42 @@ function clearWeb() {
 function toggleMode() {
     isViewMode = !isViewMode;
     toggleModeBtn.textContent = isViewMode ? 'Design Mode' : 'View Mode';
-    
-    // Hide all design-related controls in view mode
+
     const controls = document.getElementById('controls');
     controls.querySelectorAll('button, input, textarea, label').forEach(element => {
-        if (element.id !== 'toggle-mode-btn') {
+        if (element.id !== 'toggle-mode-btn' && element.id !== 'fit-btn') {
             element.style.display = isViewMode ? 'none' : 'initial';
         }
     });
 
-    // Also disable pan-zoom in view mode to avoid conflicts with clicking
     if (isViewMode) {
-        panZoomInstance.disablePan();
-        panZoomInstance.disableZoom();
-    } else {
-        panZoomInstance.enablePan();
-        panZoomInstance.enableZoom();
-    }
+    panZoomInstance.enablePan();
+    panZoomInstance.enableZoom();
+} else {
+    panZoomInstance.enablePan();
+    panZoomInstance.enableZoom();
+}
+
+    // ✅ Force redraw so nodes/links get the correct event listeners
+    drawNetwork();
 }
 
 
+
 // Event Listeners for Buttons
-addContactBtn.addEventListener('click', () => {
-    const name = nodeNameInput.value.trim();
-    const info = nodeInfoInput.value.trim();
-    if (name) {
-        const x = nodes.length === 0 ? svg.clientWidth / 2 : Math.random() * (svg.clientWidth - 200) + 100;
-        const y = nodes.length === 0 ? svg.clientHeight / 2 : Math.random() * (svg.clientHeight - 200) + 100;
-        const color = nodeColorInput.value;
-        const size = nodeSizeInput.value;
-        createNode(name, x, y, color, size, info);
-        nodeNameInput.value = '';
-        nodeInfoInput.value = '';
-    }
-});
+// addContactBtn.addEventListener('click', () => {
+//     const name = nodeNameInput.value.trim();
+//     const info = nodeInfoInput.value.trim();
+//     if (name) {
+//         const x = nodes.length === 0 ? svg.clientWidth / 2 : Math.random() * (svg.clientWidth - 200) + 100;
+//         const y = nodes.length === 0 ? svg.clientHeight / 2 : Math.random() * (svg.clientHeight - 200) + 100;
+//         const color = nodeColorInput.value;
+//         const size = nodeSizeInput.value;
+//         createNode(name, x, y, color, size, info);
+//         nodeNameInput.value = '';
+//         nodeInfoInput.value = '';
+//     }
+// });
 
 
 connectBtn.addEventListener('click', () => {
